@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jadwal Tutup & Buka Pasaran</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root{--bg:#080c14;--bg2:#0d1321;--card:rgba(14,22,38,.85);--card-hover:rgba(20,30,50,.95);--border:rgba(212,160,23,.12);--accent:#d4a017;--accent2:#f0c040;--fg:#e2e8f0;--muted:#7a8ba5;--buka:#10b981;--buka-bg:rgba(16,185,129,.1);--tutup:#ef4444;--tutup-bg:rgba(239,68,68,.1);--result:#f59e0b;--result-bg:rgba(245,158,11,.1)}
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:'Poppins',sans-serif;background:var(--bg);color:var(--fg);min-height:100vh;overflow-x:hidden}
+        .bg-glow{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+        .bg-glow::before,.bg-glow::after{content:'';position:absolute;border-radius:50%;filter:blur(120px);opacity:.15;animation:floatG 20s ease-in-out infinite alternate}
+        .bg-glow::before{width:600px;height:600px;background:var(--accent);top:-200px;left:-100px}
+        .bg-glow::after{width:500px;height:500px;background:#1a6b4a;bottom:-150px;right:-100px;animation-delay:-10s;animation-direction:alternate-reverse}
+        @keyframes floatG{0%{transform:translate(0,0) scale(1)}50%{transform:translate(80px,60px) scale(1.15)}100%{transform:translate(-40px,100px) scale(.9)}}
+        .bg-grid{position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(212,160,23,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(212,160,23,.03) 1px,transparent 1px);background-size:60px 60px}
+        .content-wrap{position:relative;z-index:1}
+        .jam-display{font-family:'Orbitron',monospace;font-weight:900;font-size:clamp(1.8rem,5vw,3rem);background:linear-gradient(135deg,var(--accent),var(--accent2),#fff5cc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:3px;filter:drop-shadow(0 0 20px rgba(212,160,23,.3))}
+        .jam-date{color:var(--muted);font-size:.85rem;letter-spacing:1px}
+        .stat-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 20px;text-align:center;backdrop-filter:blur(10px);transition:transform .2s,border-color .3s}
+        .stat-box:hover{transform:translateY(-2px)}
+        .stat-num{font-family:'Orbitron',monospace;font-weight:700;font-size:1.6rem}
+        .stat-label{font-size:.75rem;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:1px}
+        .ctrl-select,.ctrl-input{background:rgba(14,22,38,.9);border:1px solid var(--border);color:var(--fg);border-radius:10px;padding:10px 14px;font-family:'Poppins',sans-serif;font-size:.9rem;outline:none;transition:border-color .3s,box-shadow .3s;width:100%}
+        .ctrl-select:focus,.ctrl-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(212,160,23,.15)}
+        .ctrl-select option{background:#0d1321;color:var(--fg)}
+        .chip{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:20px;font-size:.8rem;font-weight:600;cursor:pointer;border:1.5px solid transparent;transition:all .25s;background:rgba(14,22,38,.7);color:var(--muted);user-select:none}
+        .chip:hover{color:var(--fg);background:rgba(14,22,38,.95)}
+        .chip.active-all{border-color:var(--accent);color:var(--accent);background:rgba(212,160,23,.08)}
+        .chip.active-buka{border-color:var(--buka);color:var(--buka);background:var(--buka-bg)}
+        .chip.active-tutup{border-color:var(--tutup);color:var(--tutup);background:var(--tutup-bg)}
+        .chip.active-soon{border-color:var(--result);color:var(--result);background:var(--result-bg)}
+        .chip-dot{width:8px;height:8px;border-radius:50%}
+        .action-btn{display:inline-flex;align-items:center;gap:8px;padding:10px 22px;border-radius:10px;font-size:.88rem;font-weight:700;cursor:pointer;transition:all .25s;font-family:'Poppins',sans-serif;white-space:nowrap;position:relative;overflow:hidden;border:1.5px solid}
+        .action-btn::before{content:'';position:absolute;inset:0;opacity:0;transition:opacity .3s}
+        .action-btn:hover{transform:translateY(-2px)}
+        .action-btn:active{transform:scale(.97)}
+        .action-btn i,.action-btn span{position:relative;z-index:1}
+        .btn-add{background:linear-gradient(135deg,rgba(16,185,129,.12),rgba(16,185,129,.04));border-color:rgba(16,185,129,.35);color:var(--buka)}
+        .btn-add::before{background:var(--buka)}
+        .btn-add:hover{border-color:var(--buka);box-shadow:0 6px 25px rgba(16,185,129,.2)}.btn-add:hover::before{opacity:.1}
+        .btn-copy-all{background:linear-gradient(135deg,rgba(212,160,23,.15),rgba(212,160,23,.05));border-color:rgba(212,160,23,.35);color:var(--accent)}
+        .btn-copy-all::before{background:linear-gradient(135deg,var(--accent),var(--accent2))}
+        .btn-copy-all:hover{border-color:var(--accent);box-shadow:0 6px 25px rgba(212,160,23,.2)}.btn-copy-all:hover::before{opacity:.12}
+        .btn-copy-all.copied{border-color:var(--buka);color:var(--buka);background:rgba(16,185,129,.08)}
+        .btn-copy-all.copied::before{background:var(--buka);opacity:.06}
+        .count-badge{background:rgba(212,160,23,.2);color:var(--accent2);font-size:.7rem;font-weight:800;padding:2px 8px;border-radius:20px;font-family:'Orbitron',monospace}
+        .btn-copy-all.copied .count-badge{background:rgba(16,185,129,.15);color:var(--buka)}
+        .btn-sound{display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:10px;background:var(--card);border:1.5px solid var(--border);color:var(--muted);font-size:1rem;cursor:pointer;transition:all .25s;flex-shrink:0}
+        .btn-sound:hover{border-color:var(--accent);color:var(--accent)}
+        .btn-sound.on{border-color:var(--buka);color:var(--buka);background:rgba(16,185,129,.08);box-shadow:0 0 15px rgba(16,185,129,.15)}
+        .btn-sound .pulse-ring{position:absolute;inset:-4px;border-radius:14px;border:2px solid var(--buka);opacity:0;animation:sndPulse 1.5s ease-out infinite}
+        @keyframes sndPulse{0%{opacity:.6;transform:scale(.95)}100%{opacity:0;transform:scale(1.1)}}
+
+        /* === MODAL === */
+        .modal-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .3s}
+        .modal-overlay.open{opacity:1;pointer-events:all}
+        .modal-box{background:linear-gradient(160deg,#0f1729,#0a1020);border:1px solid rgba(212,160,23,.2);border-radius:18px;padding:0;width:100%;max-width:460px;transform:translateY(30px) scale(.95);transition:transform .35s cubic-bezier(.22,1,.36,1);box-shadow:0 25px 80px rgba(0,0,0,.6),0 0 40px rgba(212,160,23,.05);overflow:hidden}
+        .modal-overlay.open .modal-box{transform:translateY(0) scale(1)}
+        .modal-head{display:flex;align-items:center;justify-content:space-between;padding:20px 24px 16px;border-bottom:1px solid var(--border)}
+        .modal-head h3{font-size:1.1rem;font-weight:700;color:#fff;display:flex;align-items:center;gap:10px}
+        .modal-head h3 i{color:var(--buka);font-size:.95rem}
+        .modal-close{background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;padding:4px;border-radius:6px;transition:all .2s;line-height:1}
+        .modal-close:hover{color:var(--tutup);background:rgba(239,68,68,.1)}
+        .modal-body{padding:20px 24px;display:flex;flex-direction:column;gap:16px}
+        .form-group{display:flex;flex-direction:column;gap:5px}
+        .form-group label{font-size:.78rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+        .form-group label .req{color:var(--tutup);margin-left:2px}
+        .form-input{background:rgba(0,0,0,.4);border:1px solid var(--border);color:var(--fg);border-radius:10px;padding:10px 14px;font-family:'Poppins',sans-serif;font-size:.9rem;outline:none;transition:border-color .3s,box-shadow .3s;width:100%}
+        .form-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(212,160,23,.12)}
+        .form-input.err{border-color:var(--tutup);box-shadow:0 0 0 3px rgba(239,68,68,.12)}
+        .form-error{font-size:.72rem;color:var(--tutup);min-height:16px}
+        .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+        .modal-foot{display:flex;gap:10px;padding:16px 24px 20px;border-top:1px solid var(--border);justify-content:flex-end}
+        .btn-modal{padding:10px 24px;border-radius:10px;font-size:.88rem;font-weight:700;cursor:pointer;font-family:'Poppins',sans-serif;transition:all .25s;border:1.5px solid}
+        .btn-cancel{background:transparent;border-color:var(--border);color:var(--muted)}
+        .btn-cancel:hover{border-color:var(--muted);color:var(--fg)}
+        .btn-submit{background:linear-gradient(135deg,var(--buka),#059669);border-color:transparent;color:#fff}
+        .btn-submit:hover{box-shadow:0 4px 20px rgba(16,185,129,.35);transform:translateY(-1px)}
+        .btn-submit:active{transform:scale(.97)}
+
+        /* === KARTU === */
+        .pasaran-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;backdrop-filter:blur(12px);transition:all .3s ease;position:relative;overflow:hidden;animation:cardIn .4s ease both}
+        .pasaran-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:14px 0 0 14px;transition:background .3s}
+        .pasaran-card.status-buka::before{background:var(--buka)}
+        .pasaran-card.status-tutup::before{background:var(--tutup)}
+        .pasaran-card.status-soon-result::before{background:var(--result)}
+        .pasaran-card:hover{background:var(--card-hover);border-color:rgba(212,160,23,.25);transform:translateY(-3px);box-shadow:0 12px 40px rgba(0,0,0,.4)}
+        .pasaran-card.status-soon-result{border-color:rgba(245,158,11,.4)!important;animation:cardIn .4s ease both,pulseResult 1.2s ease-in-out infinite}
+        @keyframes pulseResult{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,0)}50%{box-shadow:0 0 25px 3px rgba(245,158,11,.18)}}
+        @keyframes cardIn{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}
+        .card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-left:8px;gap:8px;flex-wrap:wrap}
+        .card-name{font-weight:700;font-size:1.05rem;color:#fff;flex:1;min-width:0}
+        .card-name .soon-icon{color:var(--result);margin-left:6px;font-size:.85rem;animation:blinkSoon 1s ease-in-out infinite}
+        @keyframes blinkSoon{0%,100%{opacity:1}50%{opacity:.3}}
+        .card-time{display:flex;flex-wrap:wrap;gap:14px;padding-left:8px;margin-bottom:10px}
+        .card-time-item{display:flex;align-items:center;gap:5px;font-size:.82rem;flex-wrap:wrap}
+        .card-time-item i{font-size:.75rem;opacity:.6}
+        .time-val{font-family:'Orbitron',monospace;font-weight:700;font-size:.85rem;color:#fff}
+        .time-lbl{color:var(--muted);white-space:nowrap}
+        .time-edited{color:var(--accent2)!important;text-shadow:0 0 8px rgba(240,192,64,.3)}
+        .btn-copy{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;background:rgba(212,160,23,.08);border:1px solid rgba(212,160,23,.2);border-radius:6px;color:var(--accent);font-size:.72rem;font-weight:600;cursor:pointer;transition:all .2s;font-family:'Poppins',sans-serif;white-space:nowrap;flex-shrink:0}
+        .btn-copy:hover{background:rgba(212,160,23,.2);border-color:var(--accent);transform:translateY(-1px)}
+        .btn-copy:active{transform:scale(.95)}
+        .btn-copy.copied{background:rgba(16,185,129,.15);border-color:rgba(16,185,129,.4);color:var(--buka)}
+        .btn-edit-time{background:none;border:none;color:var(--muted);cursor:pointer;padding:2px 5px;font-size:.68rem;opacity:0;transition:all .2s;border-radius:4px;line-height:1}
+        .pasaran-card:hover .btn-edit-time{opacity:.7}
+        .btn-edit-time:hover{color:var(--accent)!important;opacity:1!important;background:rgba(212,160,23,.1)}
+        .btn-edit-time.editing{opacity:1!important;color:var(--buka)!important}
+        @media(hover:none){.btn-edit-time{opacity:.4}}
+        .time-input{background:rgba(0,0,0,.5);border:1px solid var(--accent);border-radius:4px;color:#fff;font-family:'Orbitron',monospace;font-size:.82rem;font-weight:700;padding:2px 6px;width:100px;outline:none}
+        .time-input:focus{box-shadow:0 0 0 2px rgba(212,160,23,.3)}
+        .time-input::-webkit-inner-spin-button,.time-input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+        .time-input{-moz-appearance:textfield}
+        .badge{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:6px;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px}
+        .badge-buka{background:var(--buka-bg);color:var(--buka);border:1px solid rgba(16,185,129,.25)}
+        .badge-tutup{background:var(--tutup-bg);color:var(--tutup);border:1px solid rgba(239,68,68,.25)}
+        .badge-soon{background:var(--result-bg);color:var(--result);border:1px solid rgba(245,158,11,.3);animation:badgePulse 1s ease-in-out infinite}
+        @keyframes badgePulse{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,0)}50%{box-shadow:0 0 12px 2px rgba(245,158,11,.15)}}
+        .badge-dot{width:6px;height:6px;border-radius:50%}
+        .badge-buka .badge-dot{background:var(--buka)}
+        .badge-tutup .badge-dot{background:var(--tutup)}
+        .badge-soon .badge-dot{background:var(--result)}
+        .countdown-row{display:flex;align-items:center;gap:8px;padding-left:8px;margin-top:8px;font-size:.78rem}
+        .cd-label{color:var(--muted)}
+        .cd-val{font-family:'Orbitron',monospace;font-weight:700;font-size:.82rem}
+        .cd-buka{color:var(--buka)}
+        .cd-tutup{color:var(--tutup)}
+        .cd-soon{color:var(--result);text-shadow:0 0 8px rgba(245,158,11,.4)}
+        .card-link{display:inline-flex;align-items:center;gap:5px;padding-left:8px;margin-top:8px;font-size:.75rem;color:var(--accent);text-decoration:none;opacity:.7;transition:opacity .2s;word-break:break-all}
+        .card-link:hover{opacity:1;text-decoration:underline}
+        .card-note{padding-left:8px;margin-top:6px;font-size:.72rem;color:var(--muted);font-style:italic}
+        .single-view .pasaran-card{max-width:560px;margin:0 auto;padding:28px}
+        .single-view .card-name{font-size:1.3rem}
+        .empty-state{text-align:center;padding:60px 20px;color:var(--muted)}
+        .empty-state i{font-size:3rem;margin-bottom:16px;opacity:.3}
+        .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);color:#fff;padding:12px 28px;border-radius:10px;font-size:.85rem;font-weight:600;opacity:0;transition:all .35s ease;z-index:100;pointer-events:none;backdrop-filter:blur(12px);white-space:nowrap;max-width:92vw;text-align:center;display:flex;align-items:center;gap:8px}
+        .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+        .toast.success{background:rgba(16,185,129,.92);box-shadow:0 4px 25px rgba(16,185,129,.3)}
+        .toast.warn{background:rgba(245,158,11,.94);box-shadow:0 4px 25px rgba(245,158,11,.35);border:1px solid rgba(245,158,11,.4)}
+        .toast.error{background:rgba(239,68,68,.92);box-shadow:0 4px 25px rgba(239,68,68,.3)}
+        .toast.info{background:rgba(59,130,246,.92);box-shadow:0 4px 25px rgba(59,130,246,.3)}
+        .toast .toast-icon{font-size:1rem}
+        .btn-top{position:fixed;bottom:24px;right:24px;width:44px;height:44px;border-radius:50%;background:var(--accent);color:#000;display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;opacity:0;transform:translateY(20px);transition:all .3s;z-index:50;font-size:1rem;box-shadow:0 4px 20px rgba(212,160,23,.3)}
+        .btn-top.visible{opacity:1;transform:translateY(0)}
+        .btn-top:hover{transform:translateY(-3px);box-shadow:0 6px 30px rgba(212,160,23,.5)}
+        ::-webkit-scrollbar{width:8px}
+        ::-webkit-scrollbar-track{background:var(--bg)}
+        ::-webkit-scrollbar-thumb{background:rgba(212,160,23,.2);border-radius:4px}
+        ::-webkit-scrollbar-thumb:hover{background:rgba(212,160,23,.35)}
+        @media(max-width:640px){
+            .pasaran-card{padding:14px}
+            .card-name{font-size:.92rem}
+            .card-time{gap:10px}
+            .stat-box{padding:10px 14px}
+            .stat-num{font-size:1.3rem}
+            .btn-copy span{display:none}
+            .btn-copy{padding:5px 8px}
+            .action-btn{padding:8px 14px;font-size:.8rem}
+            .count-badge{font-size:.62rem;padding:1px 6px}
+            .form-row{grid-template-columns:1fr}
+            .modal-box{margin:10px}
+            .modal-body{padding:16px 18px}
+            .modal-head,.modal-foot{padding-left:18px;padding-right:18px}
+        }
+        @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+    </style>
+</head>
+<body>
+    <div class="bg-glow"></div>
+    <div class="bg-grid"></div>
+
+    <div class="content-wrap">
+        <header class="text-center pt-8 pb-4 px-4">
+            <p class="text-xs tracking-[4px] uppercase mb-2" style="color:var(--muted)">
+                <i class="fa-solid fa-clock mr-1"></i> Jadwal Real-Time
+            </p>
+            <h1 class="text-2xl md:text-3xl font-bold mb-4" style="color:#fff">Tutup & Buka Pasaran</h1>
+            <div class="jam-display" id="jamDisplay">00:00:00</div>
+            <div class="jam-date mt-1" id="jamDate">Memuat...</div>
+            <p class="text-xs mt-1" style="color:var(--muted)">WIB (Waktu Indonesia Barat)</p>
+        </header>
+
+        <section class="max-w-3xl mx-auto px-4 mb-5">
+            <div class="grid grid-cols-3 gap-3">
+                <div class="stat-box">
+                    <div class="stat-num" id="statTotal" style="color:var(--accent)">0</div>
+                    <div class="stat-label">Total Pasaran</div>
+                </div>
+                <div class="stat-box" style="border-color:rgba(16,185,129,.2)">
+                    <div class="stat-num" id="statBuka" style="color:var(--buka)">0</div>
+                    <div class="stat-label">Buka</div>
+                </div>
+                <div class="stat-box" style="border-color:rgba(239,68,68,.2)">
+                    <div class="stat-num" id="statTutup" style="color:var(--tutup)">0</div>
+                    <div class="stat-label">Tutup</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="max-w-3xl mx-auto px-4 mb-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                <div>
+                    <label class="text-xs font-semibold mb-1 block" style="color:var(--muted)">
+                        <i class="fa-solid fa-list mr-1"></i> Pilih Pasaran
+                    </label>
+                    <select class="ctrl-select" id="pasaranSelect" aria-label="Pilih pasaran">
+                        <option value="ALL">SEMUA PASARAN</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs font-semibold mb-1 block" style="color:var(--muted)">
+                        <i class="fa-solid fa-magnifying-glass mr-1"></i> Cari Nama Pasaran
+                    </label>
+                    <input type="text" class="ctrl-input" id="searchInput" placeholder="Ketik nama pasaran..." aria-label="Cari pasaran">
+                </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-2 mb-3" id="statusChips">
+                <button class="chip active-all" data-filter="all"><span class="chip-dot" style="background:var(--accent)"></span> Semua</button>
+                <button class="chip" data-filter="buka"><span class="chip-dot" style="background:var(--buka)"></span> Buka</button>
+                <button class="chip" data-filter="tutup"><span class="chip-dot" style="background:var(--tutup)"></span> Tutup</button>
+                <button class="chip" data-filter="soon"><span class="chip-dot" style="background:var(--result)"></span> Segera Result</button>
+            </div>
+            <div class="flex flex-wrap items-center justify-center gap-3">
+                <button class="action-btn btn-add" id="btnAddPasaran" aria-label="Tambah pasaran baru">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>Tambah Pasaran</span>
+                </button>
+                <button class="action-btn btn-copy-all" id="btnCopyAll" aria-label="Salin semua pasaran">
+                    <i class="fa-regular fa-clipboard"></i>
+                    <span>Salin Semua</span>
+                    <span class="count-badge" id="copyCountBadge">0</span>
+                </button>
+                <button class="btn-sound" id="btnSound" title="Aktifkan suara notifikasi result" aria-label="Toggle suara notifikasi" style="position:relative">
+                    <i class="fa-solid fa-volume-xmark"></i>
+                </button>
+            </div>
+        </section>
+
+        <main class="max-w-5xl mx-auto px-4 pb-16" id="mainContent">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="cardGrid"></div>
+            <div class="empty-state hidden" id="emptyState">
+                <i class="fa-solid fa-filter-circle-xmark block"></i>
+                <p>Tidak ada pasaran yang cocok dengan filter.</p>
+            </div>
+        </main>
+
+        <footer class="text-center py-6 px-4" style="color:var(--muted);font-size:.75rem;border-top:1px solid var(--border)">
+            <p>Jadwal diperbarui otomatis setiap detik berdasarkan WIB.</p>
+            <p class="mt-1">Waktu tutup/result dapat diedit langsung pada kartu pasaran.</p>
+        </footer>
+    </div>
+
+    <!-- Modal Tambah Pasaran -->
+    <div class="modal-overlay" id="addModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="modal-box">
+            <div class="modal-head">
+                <h3 id="modalTitle"><i class="fa-solid fa-circle-plus"></i> Tambah Pasaran Baru</h3>
+                <button class="modal-close" id="closeModal" aria-label="Tutup modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Nama Pasaran <span class="req">*</span></label>
+                    <input type="text" class="form-input" id="newName" placeholder="Contoh: TOTOMACAU PAGI" maxlength="50">
+                    <div class="form-error" id="errName"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Jam Tutup <span class="req">*</span></label>
+                        <input type="time" class="form-input" id="newTutup">
+                        <div class="form-error" id="errTutup"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>Jam Result <span class="req">*</span></label>
+                        <input type="time" class="form-input" id="newResult">
+                        <div class="form-error" id="errResult"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>URL Web / Live Draw</label>
+                    <input type="url" class="form-input" id="newUrl" placeholder="https://...">
+                </div>
+                <div class="form-group">
+                    <label>Catatan</label>
+                    <input type="text" class="form-input" id="newNote" placeholder="Contoh: Buka Setiap Hari, Live Draw, nawala">
+                </div>
+            </div>
+            <div class="modal-foot">
+                <button class="btn-modal btn-cancel" id="cancelAdd">Batal</button>
+                <button class="btn-modal btn-submit" id="submitAdd"><i class="fa-solid fa-plus mr-1"></i> Tambah</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <button class="btn-top" id="btnTop" aria-label="Kembali ke atas"><i class="fa-solid fa-chevron-up"></i></button>
+
+    <script>
+    /* ==========================================================
+       DATA PASARAN
+       ========================================================== */
+    const RAW = [
+        ["TOTOMACAU PAGI",0,0,0,15,"https://kick.com/live-ttm4d",""],
+        ["KENTUCKY MIDDAY",0,5,0,20,"https://www.kylottery.com",""],
+        ["FLORIDA MIDDAY",0,20,0,30,"https://floridalottery.com/games/draw-games/pick-4",""],
+        ["HUAHIN 0100",0,30,1,0,"https://huahinlottery.com/",""],
+        ["NEW YORK MIDDAY",1,15,1,25,"https://nylottery.ny.gov",""],
+        ["BANGKOK 0130",1,15,1,30,"https://bangkokpoolstoday.com/",""],
+        ["CAROLINA DAY",1,45,2,0,"https://www.nclottery.com/Pick4",""],
+        ["BRUNEI 02",2,30,2,45,"https://www.bruneipools.com",""],
+        ["OREGON03",2,50,3,0,"https://www.oregonlottery.org/pick-4/winning-numbers/",""],
+        ["OREGON06",5,50,6,0,"https://www.oregonlottery.org/pick-4/winning-numbers/",""],
+        ["CALIFORNIA",8,25,8,30,"https://www.calottery.com/play/draw-games/daily-4",""],
+        ["FLORIDA EVENING",8,35,8,45,"https://floridalottery.com/games/draw-games/pick-4",""],
+        ["OREGON09",8,50,9,0,"https://www.oregonlottery.org/pick-4/winning-numbers/",""],
+        ["BANGKOK 0930",9,0,9,30,"https://bangkokpoolstoday.com/",""],
+        ["NEW YORK EVENING",9,25,9,35,"https://nylottery.ny.gov",""],
+        ["KENTUCKY EVENING",9,45,10,0,"https://www.kylottery.com",""],
+        ["CAROLINA EVENING",10,17,10,22,"https://www.wral.com/evening-pick-3-pick-4-and-cash-5/1075494",""],
+        ["TOTOCAMBODIA",10,45,11,0,"https://totocambodialive.com/live-draw.html","Live Draw"],
+        ["CHELSEA11",11,0,11,15,"https://chelseapools.co.uk/",""],
+        ["OREGON12",11,50,12,0,"https://www.oregonlottery.org/pick-4/winning-numbers/",""],
+        ["POIPET12",12,15,12,30,"https://poipetlottery.com/",""],
+        ["TOTOMACAU SIANG",13,0,13,15,"https://kick.com/live-ttm4d",""],
+        ["BULLSEYE",13,0,13,15,"https://mylotto.co.nz/results/bullseye",""],
+        ["SYDNEY",13,49,14,5,"https://www.youtube.com/@SYDNEYLOTTOOFFICIAL1","Buka Setiap Hari"],
+        ["JAKARTA4D I",13,55,14,10,"https://jakartapool.com/","nawala"],
+        ["BRUNEI 14",14,30,14,45,"https://www.bruneipools.com",""],
+        ["CHELSEA15",15,0,15,15,"https://chelseapools.co.uk/draw-result",""],
+        ["TOTOMALI 1530",15,15,15,30,"https://totomali.com/",""],
+        ["POIPET15",15,15,15,30,"https://poipetlottery.com/",""],
+        ["5D TOTOMACAU SORE",15,15,15,30,"https://poolstotomacao.com/",""],
+        ["TOTOMACAU SORE 16:15",16,0,16,15,"https://kick.com/live-ttm4d",""],
+        ["HUAHIN 1630",16,0,16,30,"https://huahinlottery.com/",""],
+        ["KING KONG 4D SORE",17,0,17,15,"https://kick.com/king-kong-pools","Live Draw"],
+        ["SINGAPORE",17,30,17,45,"https://www.singaporepools.com.sg",""],
+        ["MAGNUM4D",18,10,18,40,"https://www.magnum4d.my/en",""],
+        ["CHELSEA19",19,0,19,15,"https://chelseapools.co.uk/draw-result",""],
+        ["TOTOMACAU MALAM 19:15",19,0,19,15,"https://poolstotomacao.com/",""],
+        ["POIPET19",19,30,19,45,"https://poipetlottery.com/",""],
+        ["PCSO",19,50,20,25,"https://www.pcso.gov.ph",""],
+        ["TOTOMALI 2030",20,15,20,30,"https://totomali.com/",""],
+        ["HUAHIN 2100",20,30,21,0,"https://huahinlottery.com/",""],
+        ["CHELSEA21",21,0,21,15,"https://chelseapools.co.uk/draw-result",""],
+        ["5D TOTOMACAU MALAM",21,15,21,30,"https://kick.com/live-ttm4d",""],
+        ["NEVADA",21,15,21,30,"https://www.nevadalottery.us",""],
+        ["BRUNEI 21",21,30,21,45,"https://www.bruneipools.com",""],
+        ["TOTOMACAU MALAM 22:15",22,0,22,15,"https://kick.com/live-ttm4d",""],
+        ["POIPET22",22,30,22,45,"https://poipetlottery.com/",""],
+        ["HONGKONG",22,59,23,15,"https://kick.com/hongkong-lotto-official","Buka Setiap Hari"],
+        ["TOTOMACAU MALAM 23:15",23,0,23,15,"https://kick.com/live-ttm4d",""],
+        ["TOTOMALI 2330",23,15,23,30,"https://totomali.com/",""],
+        ["JAKARTA4D II",23,25,23,40,"https://jakartapool.com/","nawala"],
+        ["KING KONG 4D MALAM",23,30,23,45,"https://kick.com/king-kong-pools","Live Draw"],
+        ["HOKI DRAW",-1,-1,-1,-1,"https://hokidraw.com","Result setiap jam"]
+    ];
+
+    const PASARAN = RAW.map(d => ({
+        name: d[0], tH: d[1], tM: d[2], rH: d[3], rM: d[4],
+        url: d[5], note: d[6], isHoki: d[1] === -1, custom: false
+    }));
+
+    /* ==========================================================
+       UTILITAS
+       ========================================================== */
+    const pad = n => String(n).padStart(2, '0');
+    const SOON_SEC = 60; /* detik sebelum result dianggap "segera" */
+
+    function formatCD(sec) {
+        const s = Math.max(0, Math.floor(sec));
+        const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sc = s % 60;
+        return h > 0 ? `${pad(h)}:${pad(m)}:${pad(sc)}` : `${pad(m)}:${pad(sc)}`;
+    }
+
+    function getWIB() {
+        const now = new Date();
+        const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+        const wib = new Date(utc + 7 * 3600000);
+        return { h: wib.getHours(), m: wib.getMinutes(), s: wib.getSeconds(), date: wib };
+    }
+
+    function calcStatus(p, h, m, s) {
+        const nowSec = h * 3600 + m * 60 + s;
+        if (p.isHoki) {
+            if (m < 5) {
+                const cd = 300 - m * 60 - s;
+                return { key: 'tutup', label: 'SEDANG RESULT', cdSec: cd, cd: formatCD(cd), cdLabel: 'menuju buka', soon: cd <= SOON_SEC && cd > 0 };
+            }
+            const cd = (60 - m) * 60 - s;
+            return { key: 'buka', label: 'BUKA', cdSec: cd, cd: formatCD(cd), cdLabel: 'menuju result', soon: cd <= SOON_SEC && cd > 0 };
+        }
+        const tSec = p.tH * 3600 + p.tM * 60;
+        const rSec = p.rH * 3600 + p.rM * 60;
+        if (nowSec >= rSec) {
+            const cd = tSec + 86400 - nowSec;
+            return { key: 'buka', label: 'BUKA', cdSec: cd, cd: formatCD(cd), cdLabel: 'menuju tutup', soon: false };
+        }
+        if (nowSec >= tSec) {
+            const cd = rSec - nowSec;
+            return { key: 'tutup', label: 'TUTUP', cdSec: cd, cd: formatCD(cd), cdLabel: 'menuju result', soon: cd <= SOON_SEC && cd > 0 };
+        }
+        const cd = tSec - nowSec;
+        return { key: 'buka', label: 'BUKA', cdSec: cd, cd: formatCD(cd), cdLabel: 'menuju tutup', soon: false };
+    }
+
+    function getUrlLabel(p) {
+        if (p.note === 'Live Draw') return 'Live Draw';
+        if (p.url.includes('youtube') || p.url.includes('kick.com') || p.url.includes('live-draw')) return 'Live Draw';
+        return 'Web Resmi';
+    }
+
+    function getCopyText(p) {
+        let t = `Pasaran : ${p.name}\n`;
+        if (p.isHoki) {
+            t += `Result setiap hari dari 00:00 WIB - 23:00 WIB ( live draw 1 jam sekali )\n`;
+        } else {
+            t += `Tutup Pasaran Pukul ${pad(p.tH)}:${pad(p.tM)} WIB Dan Keluaran Nomor Result Pukul ${pad(p.rH)}:${pad(p.rM)} WIB`;
+            if (p.note === 'Buka Setiap Hari') t += ` | Buka Setiap Hari`;
+            t += '\n';
+        }
+        const label = getUrlLabel(p);
+        t += `${label} : ${p.url}`;
+        if (p.note === 'nawala') t += ` / nawala`;
+        return t;
+    }
+
+    /* ==========================================================
+       SISTEM SUARA NOTIFIKASI
+       ========================================================== */
+    let audioCtx = null;
+    let soundEnabled = false;
+    let lastSoundTime = 0;
+    const alertedSet = new Set();
+
+    function initAudio() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function playNote(freq, delay, dur, vol) {
+        if (!audioCtx) return;
+        const t = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, t + delay);
+        gain.gain.setValueAtTime(0.001, t);
+        gain.gain.linearRampToValueAtTime(vol, t + delay + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + delay + dur);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(t + delay);
+        osc.stop(t + delay + dur + 0.01);
+    }
+
+    function playAlertChime() {
+        if (!audioCtx || !soundEnabled) return;
+        const now = Date.now();
+        if (now - lastSoundTime < 2500) return;
+        lastSoundTime = now;
+        /* Tiga nada naik: C5 → E5 → G5 */
+        playNote(523.25, 0, 0.35, 0.22);
+        playNote(659.25, 0.12, 0.35, 0.22);
+        playNote(783.99, 0.24, 0.5, 0.18);
+    }
+
+    function playTestChime() {
+        if (!audioCtx) return;
+        const t = audioCtx.currentTime;
+        playNote(523.25, 0, 0.2, 0.15);
+        playNote(659.25, 0.1, 0.2, 0.15);
+        playNote(783.99, 0.2, 0.35, 0.12);
+    }
+
+    /* Cek pasaran yang segera result → mainkan suara + toast */
+    function checkSoundAlerts() {
+        if (!soundEnabled) return;
+        const w = getWIB();
+        const curHour = w.h;
+
+        PASARAN.forEach(p => {
+            const st = calcStatus(p, w.h, w.m, w.s);
+            if (!st.soon) {
+                /* Reset alert set saat sudah lewat */
+                alertedSet.delete(p.name);
+                return;
+            }
+            if (alertedSet.has(p.name)) return;
+            alertedSet.add(p.name);
+            playAlertChime();
+            showToast(`${p.name} AKAN SEGERA RESULT!`, 'warn');
+        });
+    }
+
+    /* ==========================================================
+       DAFTAR PASARAN YANG DITAMPILKAN
+       ========================================================== */
+    function getVisibleList() {
+        const wib = getWIB();
+        let list = PASARAN.map((p, i) => ({ ...p, idx: i }));
+        if (filterPasaran !== 'ALL') list = list.filter(d => d.name === filterPasaran);
+        if (filterSearch.trim()) {
+            const q = filterSearch.trim().toLowerCase();
+            list = list.filter(d => d.name.toLowerCase().includes(q));
+        }
+        if (filterStatus === 'soon') {
+            list = list.filter(d => calcStatus(d, wib.h, wib.m, wib.s).soon);
+        } else if (filterStatus !== 'all') {
+            list = list.filter(d => calcStatus(d, wib.h, wib.m, wib.s).key === filterStatus);
+        }
+        if (filterPasaran === 'ALL' && !filterSearch.trim()) list.sort((a, b) => a.idx - b.idx);
+        return list;
+    }
+
+    /* ==========================================================
+       ELEMEN DOM
+       ========================================================== */
+    const $jam = document.getElementById('jamDisplay');
+    const $date = document.getElementById('jamDate');
+    const $grid = document.getElementById('cardGrid');
+    const $empty = document.getElementById('emptyState');
+    const $main = document.getElementById('mainContent');
+    const $select = document.getElementById('pasaranSelect');
+    const $search = document.getElementById('searchInput');
+    const $chips = document.querySelectorAll('#statusChips .chip');
+    const $statTotal = document.getElementById('statTotal');
+    const $statBuka = document.getElementById('statBuka');
+    const $statTutup = document.getElementById('statTutup');
+    const $btnTop = document.getElementById('btnTop');
+    const $toast = document.getElementById('toast');
+    const $btnCopyAll = document.getElementById('btnCopyAll');
+    const $copyBadge = document.getElementById('copyCountBadge');
+    const $btnSound = document.getElementById('btnSound');
+    const $addModal = document.getElementById('addModal');
+
+    /* Isi dropdown */
+    function refreshDropdown() {
+        const curVal = $select.value;
+        /* Hapus semua kecuali ALL */
+        while ($select.options.length > 1) $select.remove(1);
+        PASARAN.map(p => p.name).sort((a, b) => a.localeCompare(b, 'id', { numeric: true })).forEach(name => {
+            const opt = document.createElement('option');
+            opt.value = name; opt.textContent = name;
+            $select.appendChild(opt);
+        });
+        if ([...$select.options].some(o => o.value === curVal)) $select.value = curVal;
+    }
+    refreshDropdown();
+
+    /* ==========================================================
+       STATE
+       ========================================================== */
+    let filterPasaran = 'ALL';
+    let filterStatus = 'all';
+    let filterSearch = '';
+    let lastCardCount = -1;
+    let editJustFinished = false;
+
+    /* ==========================================================
+       BUILD KARTU
+       ========================================================== */
+    function buildCards() {
+        const list = getVisibleList();
+        lastCardCount = list.length;
+        $copyBadge.textContent = list.length;
+
+        const isSingle = filterPasaran !== 'ALL' && list.length === 1;
+        $main.classList.toggle('single-view', isSingle);
+
+        if (!list.length) {
+            $grid.innerHTML = ''; $grid.classList.add('hidden'); $empty.classList.remove('hidden');
+            $statTotal.textContent = '0'; $statBuka.textContent = '0'; $statTutup.textContent = '0';
+            return;
+        }
+        $empty.classList.add('hidden'); $grid.classList.remove('hidden');
+
+        $grid.innerHTML = list.map((d, i) => {
+            const isH = d.isHoki;
+            const tStr = isH ? 'SETIAP JAM' : `${pad(d.tH)}:${pad(d.tM)}`;
+            const rStr = isH ? 'SETIAP JAM' : `${pad(d.rH)}:${pad(d.rM)}`;
+            const uLabel = getUrlLabel(d);
+            const showNote = d.note && d.note !== 'Live Draw';
+            const customTag = d.custom ? `<span style="font-size:.6rem;color:var(--accent);background:rgba(212,160,23,.1);padding:1px 6px;border-radius:4px;margin-left:6px;font-weight:600">CUSTOM</span>` : '';
+
+            return `<div class="pasaran-card" data-name="${d.name}" style="animation-delay:${Math.min(i * .03, .6)}s">
+                <div class="card-header">
+                    <div class="card-name">${d.name}${customTag}<i class="fa-solid fa-bell soon-icon" style="display:none"></i></div>
+                    <button class="btn-copy" title="Salin teks pasaran" aria-label="Salin ${d.name}">
+                        <i class="fa-regular fa-copy"></i><span>Salin</span>
+                    </button>
+                </div>
+                <div class="card-time">
+                    ${isH ? `<div class="card-time-item">
+                        <i class="fa-solid fa-clock" style="color:var(--accent)"></i>
+                        <span class="time-lbl">Result</span>
+                        <span class="time-val">SETIAP JAM</span>
+                    </div>` : `
+                    <div class="card-time-item">
+                        <i class="fa-solid fa-lock" style="color:var(--tutup)"></i>
+                        <span class="time-lbl">Tutup</span>
+                        <span class="time-val time-display" data-field="tutup">${tStr}</span>
+                        <input type="time" class="time-input" data-field="tutup" value="${tStr}" style="display:none">
+                        <button class="btn-edit-time" data-field="tutup" title="Edit waktu tutup" aria-label="Edit tutup"><i class="fa-solid fa-pen-to-square"></i></button>
+                    </div>
+                    <div class="card-time-item">
+                        <i class="fa-solid fa-star" style="color:var(--result)"></i>
+                        <span class="time-lbl">Result</span>
+                        <span class="time-val time-display" data-field="result">${rStr}</span>
+                        <input type="time" class="time-input" data-field="result" value="${rStr}" style="display:none">
+                        <button class="btn-edit-time" data-field="result" title="Edit waktu result" aria-label="Edit result"><i class="fa-solid fa-pen-to-square"></i></button>
+                    </div>`}
+                </div>
+                <div style="padding-left:8px"><span class="card-badge badge badge-buka"><span class="badge-dot"></span>BUKA</span></div>
+                <div class="countdown-row">
+                    <span class="cd-label"><i class="fa-regular fa-clock mr-1"></i>--</span>
+                    <span class="cd-val cd-buka">--:--</span>
+                </div>
+                ${showNote ? `<div class="card-note">${d.note}</div>` : ''}
+                <a class="card-link" href="${d.url}" target="_blank" rel="noopener noreferrer">
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i> ${uLabel}
+                </a>
+            </div>`;
+        }).join('');
+
+        updateDynamic();
+    }
+
+    /* ==========================================================
+       UPDATE DYNAMIC
+       ========================================================== */
+    function updateDynamic() {
+        const wib = getWIB();
+        let bukaC = 0, tutupC = 0;
+        const cards = $grid.querySelectorAll('.pasaran-card');
+
+        cards.forEach(card => {
+            const name = card.dataset.name;
+            const p = PASARAN.find(x => x.name === name);
+            if (!p) return;
+
+            const st = calcStatus(p, wib.h, wib.m, wib.s);
+            const soonIcon = card.querySelector('.soon-icon');
+
+            card.classList.remove('status-buka', 'status-tutup', 'status-soon-result');
+
+            if (st.soon) {
+                card.classList.add('status-soon-result');
+                if (soonIcon) soonIcon.style.display = '';
+            } else {
+                card.classList.add(`status-${st.key}`);
+                if (soonIcon) soonIcon.style.display = 'none';
+            }
+
+            const badge = card.querySelector('.card-badge');
+            if (badge) {
+                if (st.soon) {
+                    badge.className = 'card-badge badge badge-soon';
+                    badge.innerHTML = `<span class="badge-dot"></span>SEGERA RESULT`;
+                } else {
+                    badge.className = `card-badge badge badge-${st.key}`;
+                    badge.innerHTML = `<span class="badge-dot"></span>${st.label}`;
+                }
+            }
+
+            const cdVal = card.querySelector('.cd-val');
+            const cdLbl = card.querySelector('.cd-label');
+            if (cdVal) {
+                cdVal.textContent = st.cd;
+                cdVal.className = `cd-val ${st.soon ? 'cd-soon' : `cd-${st.key}`}`;
+            }
+            if (cdLbl) cdLbl.innerHTML = `<i class="fa-regular fa-clock mr-1"></i>${st.cdLabel}`;
+
+            if (st.key === 'buka' && !st.soon) bukaC++; else tutupC++;
+        });
+
+        $statTotal.textContent = cards.length;
+        $statBuka.textContent = bukaC;
+        $statTutup.textContent = tutupC;
+    }
+
+    /* ==========================================================
+       EDIT WAKTU
+       ========================================================== */
+    function startEdit(card, field) {
+        const disp = card.querySelector(`.time-display[data-field="${field}"]`);
+        const inp = card.querySelector(`.time-input[data-field="${field}"]`);
+        const btn = card.querySelector(`.btn-edit-time[data-field="${field}"]`);
+        inp.dataset.original = inp.value;
+        disp.style.display = 'none';
+        inp.style.display = '';
+        btn.innerHTML = '<i class="fa-solid fa-check"></i>';
+        btn.classList.add('editing');
+        inp.focus();
+        if (inp.showPicker) try { inp.showPicker(); } catch(e) {}
+    }
+
+    function finishEdit(card, field, save) {
+        const disp = card.querySelector(`.time-display[data-field="${field}"]`);
+        const inp = card.querySelector(`.time-input[data-field="${field}"]`);
+        const btn = card.querySelector(`.btn-edit-time[data-field="${field}"]`);
+        if (save && inp.value && inp.value !== inp.dataset.original) {
+            const [h, m] = inp.value.split(':').map(Number);
+            if (!isNaN(h) && !isNaN(m)) {
+                const name = card.dataset.name;
+                const p = PASARAN.find(x => x.name === name);
+                if (p) {
+                    if (field === 'tutup') { p.tH = h; p.tM = m; } else { p.rH = h; p.rM = m; }
+                    const ns = `${pad(h)}:${pad(m)}`;
+                    disp.textContent = ns;
+                    disp.classList.add('time-edited');
+                    showToast(`Waktu ${field} ${name} diperbarui ke ${ns} WIB`, 'success');
+                    if (filterStatus !== 'all') buildCards();
+                }
+            }
+        } else {
+            inp.value = disp.textContent;
+        }
+        disp.style.display = ''; inp.style.display = 'none';
+        btn.innerHTML = '<i class="fa-solid fa-pen-to-square"></i>';
+        btn.classList.remove('editing');
+        editJustFinished = true;
+        setTimeout(() => editJustFinished = false, 150);
+    }
+
+    /* ==========================================================
+       SALIN KE CLIPBOARD
+       ========================================================== */
+    async function copyToClipboard(text) {
+        try { await navigator.clipboard.writeText(text); } catch {
+            const ta = document.createElement('textarea');
+            ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
+            document.body.appendChild(ta); ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+        }
+    }
+
+    /* ==========================================================
+       SALIN SEMUA
+       ========================================================== */
+    $btnCopyAll.addEventListener('click', async () => {
+        const list = getVisibleList();
+        if (!list.length) { showToast('Tidak ada pasaran untuk disalin', 'error'); return; }
+        const allText = list.map(p => getCopyText(p)).join('\n\n');
+        await copyToClipboard(allText);
+        $btnCopyAll.classList.add('copied');
+        $btnCopyAll.querySelector('i').className = 'fa-solid fa-check';
+        $btnCopyAll.querySelector('span:not(.count-badge)').textContent = 'Tersalin';
+        showToast(`${list.length} pasaran berhasil disalin`, 'success');
+        setTimeout(() => {
+            $btnCopyAll.classList.remove('copied');
+            $btnCopyAll.querySelector('i').className = 'fa-regular fa-clipboard';
+            $btnCopyAll.querySelector('span:not(.count-badge)').textContent = 'Salin Semua';
+        }, 2000);
+    });
+
+    /* ==========================================================
+       TOAST
+       ========================================================== */
+    let toastTimer = null;
+    function showToast(msg, type) {
+        const icons = { success: 'fa-circle-check', warn: 'fa-triangle-exclamation', error: 'fa-circle-xmark', info: 'fa-circle-info' };
+        $toast.innerHTML = `<i class="fa-solid ${icons[type] || icons.info} toast-icon"></i> ${msg}`;
+        $toast.className = `toast ${type || 'info'}`;
+        void $toast.offsetWidth; /* force reflow */
+        $toast.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => $toast.classList.remove('show'), 3500);
+    }
+
+    /* ==========================================================
+       TOGGLE SUARA
+       ========================================================== */
+    $btnSound.addEventListener('click', () => {
+        initAudio();
+        soundEnabled = !soundEnabled;
+        $btnSound.classList.toggle('on', soundEnabled);
+        $btnSound.querySelector('i').className = soundEnabled ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark';
+        $btnSound.title = soundEnabled ? 'Suara notifikasi aktif (klik untuk matikan)' : 'Aktifkan suara notifikasi result';
+        if (soundEnabled) {
+            playTestChime();
+            showToast('Suara notifikasi result diaktifkan', 'success');
+        } else {
+            showToast('Suara notifikasi dimatikan', 'info');
+        }
+    });
+
+    /* ==========================================================
+       MODAL TAMBAH PASARAN
+       ========================================================== */
+    const $newName = document.getElementById('newName');
+    const $newTutup = document.getElementById('newTutup');
+    const $newResult = document.getElementById('newResult');
+    const $newUrl = document.getElementById('newUrl');
+    const $newNote = document.getElementById('newNote');
+    const $errName = document.getElementById('errName');
+    const $errTutup = document.getElementById('errTutup');
+    const $errResult = document.getElementById('errResult');
+
+    function openModal() {
+        $newName.value = ''; $newTutup.value = ''; $newResult.value = ''; $newUrl.value = ''; $newNote.value = '';
+        [$errName, $errTutup, $errResult].forEach(e => e.textContent = '');
+        [$newName, $newTutup, $newResult].forEach(e => e.classList.remove('err'));
+        $addModal.classList.add('open');
+        setTimeout(() => $newName.focus(), 300);
+    }
+    function closeModal() { $addModal.classList.remove('open'); }
+
+    document.getElementById('btnAddPasaran').addEventListener('click', openModal);
+    document.getElementById('closeModal').addEventListener('click', closeModal);
+    document.getElementById('cancelAdd').addEventListener('click', closeModal);
+    $addModal.addEventListener('click', e => { if (e.target === $addModal) closeModal(); });
+
+    /* Validasi & submit */
+    document.getElementById('submitAdd').addEventListener('click', () => {
+        let valid = true;
+        const name = $newName.value.trim().toUpperCase();
+        const tutup = $newTutup.value;
+        const result = $newResult.value;
+        const url = $newUrl.value.trim();
+        const note = $newNote.value.trim();
+
+        [$errName, $errTutup, $errResult].forEach(e => e.textContent = '');
+        [$newName, $newTutup, $newResult].forEach(e => e.classList.remove('err'));
+
+        if (!name) { $errName.textContent = 'Nama pasaran wajib diisi'; $newName.classList.add('err'); valid = false; }
+        else if (PASARAN.some(p => p.name === name)) { $errName.textContent = `Nama "${name}" sudah ada`; $newName.classList.add('err'); valid = false; }
+
+        if (!tutup) { $errTutup.textContent = 'Jam tutup wajib diisi'; $newTutup.classList.add('err'); valid = false; }
+        if (!result) { $errResult.textContent = 'Jam result wajib diisi'; $newResult.classList.add('err'); valid = false; }
+
+        if (!valid) return;
+
+        const [tH, tM] = tutup.split(':').map(Number);
+        const [rH, rM] = result.split(':').map(Number);
+
+        PASARAN.push({
+            name, tH, tM, rH, rM,
+            url: url || 'https://example.com',
+            note: note || '',
+            isHoki: false,
+            custom: true
+        });
+
+        refreshDropdown();
+        lastCardCount = -1;
+        buildCards();
+        closeModal();
+
+        /* Otomatis pilih pasaran yang baru ditambahkan */
+        $select.value = name;
+        filterPasaran = name;
+        lastCardCount = -1;
+        buildCards();
+
+        showToast(`Pasaran "${name}" berhasil ditambahkan`, 'success');
+    });
+
+    /* Keyboard: Enter submit, Escape close */
+    $addModal.addEventListener('keydown', e => {
+        if (e.key === 'Escape') closeModal();
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+            e.preventDefault();
+            document.getElementById('submitAdd').click();
+        }
+    });
+
+    /* ==========================================================
+       EVENT DELEGATION GRID
+       ========================================================== */
+    $grid.addEventListener('click', e => {
+        const copyBtn = e.target.closest('.btn-copy');
+        if (copyBtn) {
+            const card = copyBtn.closest('.pasaran-card');
+            const p = PASARAN.find(x => x.name === card.dataset.name);
+            if (p) {
+                copyToClipboard(getCopyText(p));
+                copyBtn.classList.add('copied');
+                copyBtn.innerHTML = '<i class="fa-solid fa-check"></i><span>Disalin</span>';
+                setTimeout(() => {
+                    copyBtn.classList.remove('copied');
+                    copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i><span>Salin</span>';
+                }, 1500);
+            }
+            return;
+        }
+        const editBtn = e.target.closest('.btn-edit-time');
+        if (editBtn && !editJustFinished) {
+            const card = editBtn.closest('.pasaran-card');
+            const field = editBtn.dataset.field;
+            if (editBtn.classList.contains('editing')) finishEdit(card, field, true);
+            else startEdit(card, field);
+        }
+    });
+
+    $grid.addEventListener('change', e => {
+        if (e.target.classList.contains('time-input')) finishEdit(e.target.closest('.pasaran-card'), e.target.dataset.field, true);
+    });
+    $grid.addEventListener('focusout', e => {
+        if (!e.target.classList.contains('time-input')) return;
+        if (e.target.style.display === 'none') return;
+        const relatedBtn = e.relatedTarget?.closest('.btn-edit-time');
+        if (relatedBtn && relatedBtn.closest('.pasaran-card') === e.target.closest('.pasaran-card')) return;
+        finishEdit(e.target.closest('.pasaran-card'), e.target.dataset.field, true);
+    });
+    $grid.addEventListener('keydown', e => {
+        if (!e.target.classList.contains('time-input')) return;
+        if (e.key === 'Enter') { e.preventDefault(); finishEdit(e.target.closest('.pasaran-card'), e.target.dataset.field, true); e.target.blur(); }
+        if (e.key === 'Escape') { finishEdit(e.target.closest('.pasaran-card'), e.target.dataset.field, false); e.target.blur(); }
+    });
+
+    /* ==========================================================
+       EVENT FILTER
+       ========================================================== */
+    $select.addEventListener('change', () => {
+        filterPasaran = $select.value; lastCardCount = -1;
+        buildCards(); window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    $search.addEventListener('input', () => {
+        filterSearch = $search.value; lastCardCount = -1; buildCards();
+    });
+    $chips.forEach(chip => {
+        chip.addEventListener('click', () => {
+            $chips.forEach(c => c.className = 'chip');
+            const f = chip.dataset.filter;
+            filterStatus = f;
+            chip.classList.add(f === 'all' ? 'active-all' : f === 'buka' ? 'active-buka' : f === 'tutup' ? 'active-tutup' : 'active-soon');
+            lastCardCount = -1; buildCards();
+        });
+    });
+    window.addEventListener('scroll', () => $btnTop.classList.toggle('visible', window.scrollY > 400));
+    $btnTop.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+
+    /* ==========================================================
+       JAM
+       ========================================================== */
+    const HARI = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+    const BULAN = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+
+    function updateJam() {
+        const w = getWIB();
+        $jam.textContent = `${pad(w.h)}:${pad(w.m)}:${pad(w.s)}`;
+        $date.textContent = `${HARI[w.date.getDay()]}, ${w.date.getDate()} ${BULAN[w.date.getMonth()]} ${w.date.getFullYear()}`;
+    }
+
+    /* ==========================================================
+       LOOP UTAMA
+       ========================================================== */
+    function tick() {
+        updateJam();
+        if (filterStatus === 'soon') {
+            const list = getVisibleList();
+            if (list.length !== lastCardCount) buildCards();
+        }
+        updateDynamic();
+        checkSoundAlerts();
+    }
+
+    buildCards();
+    setInterval(tick, 1000);
+    </script>
+</body>
+</html>
