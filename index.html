@@ -169,7 +169,7 @@
         .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);color:#fff;padding:12px 28px;border-radius:10px;font-size:.85rem;font-weight:600;opacity:0;transition:all .35s ease;z-index:100;pointer-events:none;backdrop-filter:blur(12px);white-space:nowrap;max-width:92vw;text-align:center;display:flex;align-items:center;gap:8px}
         .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
         .toast.success{background:rgba(16,185,129,.92);box-shadow:0 4px 25px rgba(16,185,129,.3)}
-        .toast.warn{background:rgba(245,158,11,.94);box-shadow:0 4px 25px rgba(245,158,11,.35);border:1px solid rgba(245,158,11,.4)}
+        .toast.warn{background:rgba(239,68,68,.94);box-shadow:0 4px 25px rgba(239,68,68,.35);border:1px solid rgba(239,68,68,.4)}
         .toast.error{background:rgba(239,68,68,.92);box-shadow:0 4px 25px rgba(239,68,68,.3)}
         .toast.info{background:rgba(59,130,246,.92);box-shadow:0 4px 25px rgba(59,130,246,.3)}
         .toast .toast-icon{font-size:1rem}
@@ -262,7 +262,7 @@
                     <i class="fa-regular fa-clipboard"></i><span>Salin Semua</span>
                     <span class="count-badge" id="copyCountBadge">0</span>
                 </button>
-                <button class="btn-sound" id="btnSound" title="Aktifkan suara notifikasi result" aria-label="Toggle suara">
+                <button class="btn-sound" id="btnSound" title="Aktifkan suara notifikasi tutup & result" aria-label="Toggle suara">
                     <span class="pulse-ring"></span>
                     <i class="fa-solid fa-volume-xmark"></i>
                 </button>
@@ -455,15 +455,16 @@
     }
 
     /* ==========================================================
-       SUARA NOTIFIKASI + TEXT-TO-SPEECH
+       SUARA NOTIFIKASI — 2 MOMEN: TUTUP & RESULT
+       Menggunakan tracking perubahan status (prev vs sekarang)
        ========================================================== */
     const SOUND_KEY = 'pasaran_sound_enabled';
     let soundEnabled = localStorage.getItem(SOUND_KEY) === 'true';
     let audioCtx = null;
     let lastChimeTime = 0;
-    const alertedSet = new Set();
+    const prevStatusMap = new Map(); // key pasaran -> status di detik sebelumnya
 
-    /* --- Chime musik (AudioContext) --- */
+    /* --- AudioContext helpers --- */
     function initAudio() {
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -478,84 +479,83 @@
         osc.connect(gain); gain.connect(audioCtx.destination);
         osc.start(t + delay); osc.stop(t + delay + dur + 0.01);
     }
-    function playAlertChime() {
+
+    /* Chime TUTUP — nada menurun (tanda peringatan) */
+    function playTutupChime() {
         if (!audioCtx || !soundEnabled) return;
-        const now = Date.now(); if (now - lastChimeTime < 2500) return; lastChimeTime = now;
-        playNote(523.25, 0, 0.35, 0.22); playNote(659.25, 0.12, 0.35, 0.22); playNote(783.99, 0.24, 0.5, 0.18);
+        const now = Date.now(); if (now - lastChimeTime < 800) return; lastChimeTime = now;
+        playNote(659.25, 0,    0.30, 0.25);  /* E5 */
+        playNote(523.25, 0.12, 0.30, 0.25);  /* C5 */
+        playNote(392.00, 0.24, 0.45, 0.20);  /* G4 */
     }
+
+    /* Chime RESULT — nada meningkat (tanda result keluar) */
+    function playResultChime() {
+        if (!audioCtx || !soundEnabled) return;
+        const now = Date.now(); if (now - lastChimeTime < 800) return; lastChimeTime = now;
+        playNote(523.25, 0,    0.22, 0.22);  /* C5 */
+        playNote(659.25, 0.10, 0.22, 0.22);  /* E5 */
+        playNote(783.99, 0.20, 0.22, 0.22);  /* G5 */
+        playNote(1046.50, 0.30, 0.50, 0.18); /* C6 — nada tinggi penutup */
+    }
+
     function playTestChime() {
         if (!audioCtx) return;
-        playNote(523.25, 0, 0.2, 0.15); playNote(659.25, 0.1, 0.2, 0.15); playNote(783.99, 0.2, 0.35, 0.12);
+        playNote(659.25, 0,    0.15, 0.15);
+        playNote(523.25, 0.08, 0.15, 0.15);
+        playNote(392.00, 0.16, 0.25, 0.12);
+        setTimeout(() => {
+            playNote(523.25, 0,    0.12, 0.15);
+            playNote(659.25, 0.08, 0.12, 0.15);
+            playNote(783.99, 0.16, 0.12, 0.15);
+            playNote(1046.50, 0.24, 0.35, 0.12);
+        }, 600);
     }
 
-    /* --- Text-to-Speech: menyebut nama pasaran --- */
-    let idVoice = null;       /* voice bahasa Indonesia yang dipilih */
-    let voicesReady = false;   /* apakah daftar voice sudah dimuat */
-    const speechQueue = [];    /* antrian teks yang akan diucapkan */
-    let isSpeaking = false;    /* sedang ada yang berbicara */
-    let lastSpeechTime = 0;    /* throttle supaya tidak spam */
+    /* --- Text-to-Speech --- */
+    let idVoice = null;
+    let voicesReady = false;
+    const speechQueue = [];
+    let isSpeaking = false;
+    let lastSpeechTime = 0;
 
-    /* Muat daftar voice dan pilih yang bahasa Indonesia */
     function loadVoices() {
         const voices = speechSynthesis.getVoices();
         if (!voices.length) return;
         voicesReady = true;
-        /* Prioritas: bahasa Indonesia */
         idVoice = voices.find(v => v.lang === 'id-ID') ||
                   voices.find(v => v.lang === 'id') ||
                   voices.find(v => v.lang.startsWith('id')) ||
-                  voices.find(v => v.lang.startsWith('ms')) || /* Melayu, mirip */
+                  voices.find(v => v.lang.startsWith('ms')) ||
                   null;
     }
     speechSynthesis.onvoiceschanged = loadVoices;
     loadVoices();
 
-    /* Proses antrian speech satu per satu */
     function processQueue() {
         if (isSpeaking || !speechQueue.length) return;
         const now = Date.now();
-        if (now - lastSpeechTime < 3500) {
-            /* Jika masih terlalu cepat dari speech sebelumnya, tunggu */
-            setTimeout(processQueue, 500);
-            return;
-        }
+        if (now - lastSpeechTime < 3500) { setTimeout(processQueue, 500); return; }
         const text = speechQueue.shift();
         if (!text) { isSpeaking = false; return; }
-
         const utt = new SpeechSynthesisUtterance(text);
         utt.lang = 'id-ID';
         if (idVoice) utt.voice = idVoice;
-        utt.rate = 0.95;   /* sedikit lebih lambat agar jelas */
-        utt.pitch = 1.0;
-        utt.volume = 1.0;
-
+        utt.rate = 0.95; utt.pitch = 1.0; utt.volume = 1.0;
         utt.onstart = () => { isSpeaking = true; };
-        utt.onend = () => {
-            isSpeaking = false;
-            lastSpeechTime = Date.now();
-            /* Lanjut ke antrian berikutnya setelah jeda singkat */
-            setTimeout(processQueue, 300);
-        };
-        utt.onerror = () => {
-            isSpeaking = false;
-            lastSpeechTime = Date.now();
-            setTimeout(processQueue, 300);
-        };
-
-        speechSynthesis.cancel(); /* Batalkan yang lama jika ada */
+        utt.onend = () => { isSpeaking = false; lastSpeechTime = Date.now(); setTimeout(processQueue, 300); };
+        utt.onerror = () => { isSpeaking = false; lastSpeechTime = Date.now(); setTimeout(processQueue, 300); };
+        speechSynthesis.cancel();
         speechSynthesis.speak(utt);
     }
 
-    /* Tambahkan teks ke antrian speech */
     function speakAlert(text) {
         if (!soundEnabled) return;
-        /* Cegah duplikat dalam antrian */
         if (speechQueue.includes(text)) return;
         speechQueue.push(text);
         processQueue();
     }
 
-    /* Berhentikan semua speech (saat toggle mati) */
     function stopAllSpeech() {
         speechSynthesis.cancel();
         speechQueue.length = 0;
@@ -566,26 +566,46 @@
         const $btn = document.getElementById('btnSound');
         $btn.classList.toggle('on', soundEnabled);
         $btn.querySelector('i').className = soundEnabled ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark';
-        $btn.title = soundEnabled ? 'Suara aktif (klik matikan)' : 'Aktifkan suara notifikasi';
+        $btn.title = soundEnabled
+            ? 'Suara aktif — berbunyi saat TUTUP & RESULT (klik matikan)'
+            : 'Aktifkan suara notifikasi tutup & result pasaran';
     }
 
+    /* ==========================================================
+       INTI: Deteksi perubahan status tiap detik
+       - BUKA → TUTUP  : alert TUTUP PASARAN
+       - TUTUP → BUKA  : alert RESULT KELUAR
+       ========================================================== */
     function checkSoundAlerts() {
         if (!soundEnabled) return;
         const w = getWIB();
         PASARAN.forEach(p => {
             const st = calcStatus(p, w.h, w.m, w.s);
-            if (!st.soon) { alertedSet.delete(p._key); return; }
-            if (alertedSet.has(p._key)) return;
-            alertedSet.add(p._key);
+            const prev = prevStatusMap.get(p._key);
 
-            /* 1. Mainkan chime musik */
-            playAlertChime();
+            /* Skip jika status belum pernah tercatat (first load — hindari false alert) */
+            if (prev === undefined) {
+                prevStatusMap.set(p._key, st.key);
+                return;
+            }
 
-            /* 2. Tampilkan toast visual */
-            showToast(`${p.name} AKAN SEGERA RESULT!`, 'warn');
+            /* Deteksi perubahan status */
+            if (prev !== st.key) {
+                if (st.key === 'tutup' && prev === 'buka') {
+                    /* === Momen TUTUP PASARAN === */
+                    playTutupChime();
+                    showToast(`${p.name} TUTUP PASARAN!`, 'warn');
+                    speakAlert(`${p.name} tutup pasaran`);
+                } else if (st.key === 'buka' && prev === 'tutup') {
+                    /* === Momen RESULT KELUAR === */
+                    playResultChime();
+                    showToast(`RESULT ${p.name} SUDAH KELUAR!`, 'success');
+                    speakAlert(`Result ${p.name} sudah keluar`);
+                }
+            }
 
-            /* 3. Ucapkan nama pasaran via TTS */
-            speakAlert(`${p.name} akan segera result`);
+            /* Update status terakhir */
+            prevStatusMap.set(p._key, st.key);
         });
     }
 
@@ -608,8 +628,7 @@
         initAudio();
         document.addEventListener('click', function fc() {
             playTestChime();
-            /* Test TTS juga saat pertama kali aktif */
-            speakAlert('Suara notifikasi aktif');
+            speakAlert('Suara tutup dan result aktif');
             document.removeEventListener('click', fc);
         }, { once: true });
     }
@@ -778,7 +797,7 @@
 
     let toastTimer = null;
     function showToast(msg, type) {
-        const icons = { success:'fa-circle-check', warn:'fa-triangle-exclamation', error:'fa-circle-xmark', info:'fa-circle-info' };
+        const icons = { success:'fa-circle-check', warn:'fa-circle-xmark', error:'fa-circle-xmark', info:'fa-circle-info' };
         $toast.innerHTML = `<i class="fa-solid ${icons[type]||icons.info} toast-icon"></i> ${msg}`;
         $toast.className = `toast ${type||'info'}`;
         void $toast.offsetWidth; $toast.classList.add('show');
@@ -791,10 +810,10 @@
         syncSoundButton();
         if (soundEnabled) {
             playTestChime();
-            speakAlert('Suara notifikasi aktif');
-            showToast('Suara notifikasi diaktifkan', 'success');
+            speakAlert('Suara tutup dan result aktif');
+            showToast('Suara aktif — berbunyi saat TUTUP & RESULT', 'success');
         } else {
-            alertedSet.clear();
+            prevStatusMap.clear();
             stopAllSpeech();
             showToast('Suara notifikasi dimatikan', 'info');
         }
